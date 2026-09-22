@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: crm
+      POSTGRES_PASSWORD: crm
+      POSTGRES_DB: crm
+    ports:
+      # 5433：AI 能力层（D:\codex）占用了 5432，两个仓库各自独立启动
+      - '5433:5432'
+    volumes:
+      - crmdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U crm -d crm']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  crm-api:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      CRM_STORAGE: postgres
+      CRM_DATABASE_URL: postgresql+psycopg://crm:crm@postgres:5432/crm
+      CRM_SECRET_KEY: change-me-in-production
+      CRM_SERVICE_TOKEN: change-me-in-production
+      CRM_SERVE_WEB: 'true'
+      CRM_SEED_DEMO: 'true'
+      CRM_BOOTSTRAP_ADMIN_EMAIL: admin@example.com
+      CRM_BOOTSTRAP_ADMIN_PASSWORD: admin12345
+    ports:
+      - '9100:9100'
+    volumes:
+      # 前端构建产物：先在宿主机跑 cd web; npm run build，容器只做托管
+      - ./web/dist:/srv/web/dist:ro
+
+volumes:
+  crmdata:
